@@ -12,11 +12,15 @@ local AimSettings = {
     FOV = 100, -- Field of view for aimbot
     AimbotEnabled = false, -- Toggle for aimbot
     DrawFOV = true, -- Toggle for drawing FOV circle
-    FOVCircleColor = Color3.fromRGB(0, 255, 0),
+    FOVCircleColor = Color3.fromRGB(128, 0, 128), -- Purple color for FOV outline
 }
 
 -- Variables for UI
 local FOVCircle
+local MenuFrame
+local IsDragging = false
+local DragStart = nil
+local StartPos = nil
 
 -- Function to create and update the FOV circle
 local function UpdateFOVCircle()
@@ -57,7 +61,7 @@ local function AimAt(target)
         local screenPoint = Camera:WorldToScreenPoint(target.HumanoidRootPart.Position)
         local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
         local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        
+
         -- Smoothing calculation
         local aimPos = mousePos:Lerp(targetPos, 1 / AimSettings.Smoothing)
         mousemoverel(aimPos.X - mousePos.X, aimPos.Y - mousePos.Y)
@@ -68,7 +72,7 @@ end
 local function GetClosestTarget()
     local closestTarget = nil
     local closestDistance = AimSettings.FOV
-    
+
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local target = player.Character
@@ -77,7 +81,7 @@ local function GetClosestTarget()
                 local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
                 local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
                 local distance = (mousePos - targetPos).Magnitude
-                
+
                 if distance < closestDistance then
                     closestDistance = distance
                     closestTarget = target
@@ -85,48 +89,86 @@ local function GetClosestTarget()
             end
         end
     end
-    
+
     return closestTarget
 end
 
--- Menu for adjusting settings (just an example, you can customize the GUI more)
+-- Function to create the menu
 local function CreateMenu()
-    local screenGui = Instance.new("ScreenGui", game.Players.LocalPlayer:WaitForChild("PlayerGui"))
-    screenGui.Name = "AimbotMenu"
+    MenuFrame = Instance.new("Frame")
+    MenuFrame.Size = UDim2.new(0, 300, 0, 200)
+    MenuFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+    MenuFrame.BackgroundTransparency = 0.5
+    MenuFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    MenuFrame.BorderSizePixel = 0
+    MenuFrame.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+    -- Close Button
+    local closeButton = Instance.new("TextButton", MenuFrame)
+    closeButton.Size = UDim2.new(0, 80, 0, 30)
+    closeButton.Position = UDim2.new(1, -90, 0, 10)
+    closeButton.Text = "Close"
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     
+    closeButton.MouseButton1Click:Connect(function()
+        MenuFrame.Visible = false
+    end)
+
     -- Smoothing Slider
-    local smoothingLabel = Instance.new("TextLabel", screenGui)
-    smoothingLabel.Size = UDim2.new(0, 200, 0, 50)
-    smoothingLabel.Position = UDim2.new(0.05, 0, 0.05, 0)
+    local smoothingLabel = Instance.new("TextLabel", MenuFrame)
+    smoothingLabel.Size = UDim2.new(1, 0, 0, 30)
+    smoothingLabel.Position = UDim2.new(0, 0, 0.2, 0)
     smoothingLabel.Text = "Smoothing: " .. AimSettings.Smoothing
-    
-    local smoothingButton = Instance.new("TextButton", screenGui)
-    smoothingButton.Size = UDim2.new(0, 200, 0, 50)
-    smoothingButton.Position = UDim2.new(0.05, 0, 0.12, 0)
-    smoothingButton.Text = "Increase Smoothing"
-    
-    smoothingButton.MouseButton1Click:Connect(function()
+    smoothingLabel.BackgroundTransparency = 1
+
+    local increaseSmoothingButton = Instance.new("TextButton", MenuFrame)
+    increaseSmoothingButton.Size = UDim2.new(1, 0, 0, 30)
+    increaseSmoothingButton.Position = UDim2.new(0, 0, 0.3, 0)
+    increaseSmoothingButton.Text = "Increase Smoothing"
+
+    increaseSmoothingButton.MouseButton1Click:Connect(function()
         AimSettings.Smoothing = AimSettings.Smoothing + 1
         smoothingLabel.Text = "Smoothing: " .. AimSettings.Smoothing
     end)
-    
+
     -- FOV Slider
-    local fovLabel = Instance.new("TextLabel", screenGui)
-    fovLabel.Size = UDim2.new(0, 200, 0, 50)
-    fovLabel.Position = UDim2.new(0.05, 0, 0.2, 0)
+    local fovLabel = Instance.new("TextLabel", MenuFrame)
+    fovLabel.Size = UDim2.new(1, 0, 0, 30)
+    fovLabel.Position = UDim2.new(0, 0, 0.4, 0)
     fovLabel.Text = "FOV: " .. AimSettings.FOV
-    
-    local fovButton = Instance.new("TextButton", screenGui)
-    fovButton.Size = UDim2.new(0, 200, 0, 50)
-    fovButton.Position = UDim2.new(0.05, 0, 0.27, 0)
-    fovButton.Text = "Increase FOV"
-    
-    fovButton.MouseButton1Click:Connect(function()
+    fovLabel.BackgroundTransparency = 1
+
+    local increaseFOVButton = Instance.new("TextButton", MenuFrame)
+    increaseFOVButton.Size = UDim2.new(1, 0, 0, 30)
+    increaseFOVButton.Position = UDim2.new(0, 0, 0.5, 0)
+    increaseFOVButton.Text = "Increase FOV"
+
+    increaseFOVButton.MouseButton1Click:Connect(function()
         AimSettings.FOV = AimSettings.FOV + 10
         fovLabel.Text = "FOV: " .. AimSettings.FOV
     end)
-    
-    return screenGui
+
+    -- Make the menu draggable
+    MenuFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            IsDragging = true
+            DragStart = input.Position
+            StartPos = MenuFrame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    IsDragging = false
+                end
+            end)
+        end
+    end)
+
+    MenuFrame.InputChanged:Connect(function(input)
+        if IsDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - DragStart
+            MenuFrame.Position = StartPos + UDim2.new(0, delta.X, 0, delta.Y)
+        end
+    end)
 end
 
 -- Main loop to check for the closest target and aim at them
@@ -137,7 +179,7 @@ RunService.RenderStepped:Connect(function()
             AimAt(target)
         end
     end
-    
+
     UpdateFOVCircle() -- Draw/update the FOV circle every frame
 end)
 
