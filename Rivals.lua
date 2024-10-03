@@ -1,6 +1,6 @@
 -- Configuration
 local FOV = 60 -- Field of view for aim assist
-local AimSmoothness = 1 -- Smoothness of the aim assist (lower is faster snapping)
+local AimSmoothness = 0.1 -- Smoothness of the aim assist (lower is faster snapping)
 local ActivationKey = Enum.KeyCode.ButtonL2 -- Controller button for activation (L2 / ADS)
 local MaxDistance = 1000 -- Max distance to aim at targets
 
@@ -10,6 +10,34 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = game.Workspace.CurrentCamera
 local RunService = game:GetService("RunService")
+
+-- Function to create success notification
+local function createNotification()
+    -- Create a ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AimbotNotification"
+    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+    -- Create a TextLabel to show the success message
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Parent = screenGui
+    textLabel.Text = "Aimbot Injected Successfully"
+    textLabel.Size = UDim2.new(0, 300, 0, 50)
+    textLabel.Position = UDim2.new(0.5, -150, 0.9, 0) -- Centered at the bottom of the screen
+    textLabel.BackgroundTransparency = 0.5
+    textLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
+    textLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green text
+    textLabel.TextScaled = true
+    textLabel.Font = Enum.Font.SourceSansBold
+
+    -- Fade out the notification after a few seconds
+    wait(3) -- Show for 3 seconds
+    for i = 1, 10 do
+        textLabel.TextTransparency = i * 0.1
+        wait(0.1)
+    end
+    screenGui:Destroy() -- Remove after fading out
+end
 
 -- Function to check if the player is visible and inside the FOV
 local function IsVisibleAndInFOV(target)
@@ -79,3 +107,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
+
+-- Call the notification to confirm the injection of the script
+createNotification()
