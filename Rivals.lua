@@ -1,25 +1,53 @@
--- Script to highlight players with light blue color every second
+-- LocalScript
 
-local players = game.Players
-local lightBlueColor = Color3.new(0.5, 0.8, 1)
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
--- Function to highlight players with light blue color
-local function highlightPlayers()
-    for _, player in pairs(players:GetPlayers()) do
-        local humanoid = player.Character:WaitForChild("Humanoid")
-        if humanoid then
-            humanoid.DisplayDistance = 0 -- Set display distance to 0 to prevent clipping
-            humanoid.Health = 1 -- Set health to 1 to prevent death
-            humanoid.Color = lightBlueColor
+-- Highlight Color
+local highlightColor = Color3.fromRGB(173, 216, 230) -- Light Blue
+
+-- Function to create highlights for players
+local function HighlightPlayers()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = player.Character.HumanoidRootPart
+            highlight.FillColor = highlightColor
+            highlight.OutlineColor = Color3.new(1, 1, 1) -- White outline
+            highlight.Parent = player.Character
+
+            -- Remove existing highlights if they already exist
+            if player.Character:FindFirstChild("Highlight") then
+                player.Character.Highlight:Destroy()
+            end
         end
     end
 end
 
--- Run the highlighting function initially
-highlightPlayers()
-
--- Create a repeating function to update highlights every second
-while true do
-    wait(1)
-    highlightPlayers()
+-- Function to refresh highlights
+local function RefreshHighlights()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if not player.Character:FindFirstChild("Highlight") then
+                HighlightPlayers()
+            end
+        end
+    end
 end
+
+-- Initial highlighting
+HighlightPlayers()
+
+-- Set up a loop to check for changes every second
+RunService.Heartbeat:Connect(function()
+    wait(1)
+    RefreshHighlights()
+end)
+
+-- Also check for new players joining the game
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        HighlightPlayers()
+    end)
+end)
