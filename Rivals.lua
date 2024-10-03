@@ -1,3 +1,14 @@
+-- Configuration
+local FOV = 60 -- Field of view for aim assist
+local ActivationKey = Enum.KeyCode.ButtonL2 -- Controller button for activation (L2 / ADS)
+
+-- Required Roblox services
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = game.Workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
 -- Function to create an in-game notification
 local function createTargetNotification(message, color)
     local screenGui = Instance.new("ScreenGui")
@@ -23,36 +34,7 @@ local function createTargetNotification(message, color)
     screenGui:Destroy()
 end
 
--- Function to check if the player is visible and inside the FOV
-local function IsVisibleAndInFOV(target)
-    if target and target:FindFirstChild("HumanoidRootPart") then
-        local screenPoint, onScreen = Camera:WorldToScreenPoint(target.HumanoidRootPart.Position)
-        if onScreen then
-            local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-            local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
-            local distance = (mousePos - targetPos).Magnitude
-            
-            -- Check if within FOV and visible
-            if distance <= FOV then
-                local rayOrigin = Camera.CFrame.Position
-                local rayDirection = (target.HumanoidRootPart.Position - rayOrigin).Unit * MaxDistance
-                local raycastParams = RaycastParams.new()
-                raycastParams.FilterDescendantsInstances = {LocalPlayer.Character} -- Ignore own character
-                
-                local ray = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-                if ray and ray.Instance and ray.Instance:IsDescendantOf(target) then
-                    createTargetNotification("Target in FOV: " .. target.Name, Color3.fromRGB(0, 255, 0))
-                    return true
-                else
-                    createTargetNotification("Target NOT Visible: " .. target.Name, Color3.fromRGB(255, 0, 0))
-                end
-            end
-        end
-    end
-    return false
-end
-
--- Function to get the closest visible target within the FOV
+-- Simplified target detection (No visibility checks, just detecting players)
 local function GetClosestTarget()
     local closestTarget = nil
     local closestDistance = FOV
@@ -60,15 +42,21 @@ local function GetClosestTarget()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local target = player.Character
-            if IsVisibleAndInFOV(target) then
-                local screenPoint = Camera:WorldToScreenPoint(target.HumanoidRootPart.Position)
+            local screenPoint, onScreen = Camera:WorldToScreenPoint(target.HumanoidRootPart.Position)
+            
+            -- Check if the target is on-screen and within FOV
+            if onScreen then
                 local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
                 local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
                 local distance = (mousePos - targetPos).Magnitude
                 
-                if distance < closestDistance then
-                    closestDistance = distance
+                -- Simple FOV check
+                if distance <= FOV then
+                    createTargetNotification("Target in FOV: " .. target.Name, Color3.fromRGB(0, 255, 0))
                     closestTarget = target
+                    break -- Stop after finding the first target in FOV
+                else
+                    createTargetNotification("Target not in FOV", Color3.fromRGB(255, 0, 0))
                 end
             end
         end
@@ -76,3 +64,10 @@ local function GetClosestTarget()
     
     return closestTarget
 end
+
+-- Main loop to detect targets when L2 (ADS) is pressed
+RunService.RenderStepped:Connect(function()
+    if UserInputService:IsKeyDown(ActivationKey) then
+        GetClosestTarget()
+    end
+end)
